@@ -1,0 +1,101 @@
+# ============================================================================
+# Custom Assembly GitOps Workflow
+#
+# Applies the CA overlay config to Chainguard whenever it changes on main.
+# This triggers a rebuild of the customized Node image with icu-dev.
+#
+# Prerequisites:
+#   1. A Chainguard assumable identity for GitHub Actions
+#   2. The following repository variables set:
+#      - CHAINGUARD_IDENTITY : full identity ID (e.g., <org-id>/<identity-id>)
+#      - CHAINGUARD_ORG      : your Chainguard organization name
+#      - CHAINGUARD_REPO     : the source repo name (e.g., "node")
+#      - CUSTOM_IMAGE        : registry path (e.g., cgr.dev/<org>/custom-node-icu)
+# ============================================================================
+
+name: Custom Assembly Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ca-overlay/**"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  apply-custom-assembly:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: main
+
+      - name: Install chainctl
+        uses: chainguard-dev/setup-chainctl@8d93dcbef466d3cf3533f67084f52eb74ef9d262 # v0.2.4
+        with:
+          identity: ${{ vars.CHAINGUARD_IDENTITY }}
+
+      - name: Authenticate to registry
+        run: chainctl auth configure-docker
+
+      - name: Apply Custom Assembly overlay
+        run: |
+          chainctl image repo build apply \
+            -f ca-overlay/node-icu.yaml \
+            --parent "${{ vars.CHAINGUARD_ORG }}" \
+            --repo "${{ vars.CHAINGUARD_REPO }}" \
+            --save-as custom-node-icu \
+            --yes
+
+  verify-image:
+    needs: apply-custom-assembly
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install chainctl
+        uses: chainguard-dev/setup-chainctl@8d93dcbef466d3cf3533f67084f52eb74ef9d262 # v0.2.4
+        with:
+          identity: ${{ vars.CHAINGUARD_IDENTITY }}
+
+      - name: Authenticate to registry
+        run: chainctl auth configure-docker
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3
+
+      - name: Verify image signature
+        run: |
+          cosign verify \
+            --certificate-oidc-issuer=https://issuer.enforce.dev \
+            --certificate-identity-regexp="https://issuer.enforce.dev/.*" \
+            "${{ vars.CUSTOM_IMAGE }}:latest"
+
+      - name: Build and run demo
+        run: |
+          docker build \
+            --build-arg NODE_IMAGE="${{ vars.CUSTOM_IMAGE }}:latest" \
+            -t icu-demo .
+          docker run --rm icu-demo

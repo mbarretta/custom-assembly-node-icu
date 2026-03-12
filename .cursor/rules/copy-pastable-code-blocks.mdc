@@ -1,0 +1,14 @@
+---
+description: Code blocks in markdown must be directly copy-pastable into a terminal
+globs: "**/*.md"
+alwaysApply: false
+---
+
+# Copy-Pastable Code Blocks
+
+All bash/shell code blocks in markdown files must be directly copy-pastable into a terminal.
+
+- Never put comments inside bash code blocks (they cause weird terminal behavior)
+- Never prefix commands with `$` or `#` prompt characters
+- Put explanatory text in the prose above or below the code block, not inside it
+- Comments in tree/directory structure blocks are also discouraged; use a table below the tree instead

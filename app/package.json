@@ -1,0 +1,9 @@
+{
+  "name": "custom-assembly-icu-demo",
+  "version": "1.0.0",
+  "description": "Demo app showing full ICU internationalization support via Chainguard Custom Assembly",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  }
+}
