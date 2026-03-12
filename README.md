@@ -27,7 +27,7 @@ docker run --rm --entrypoint /bin/sh cgr.dev/chainguard/node:latest -c "ls /usr/
 /usr/lib/libicuuc.so.78
 ```
 
-But the dev headers are completely absent:
+But the dev headers are absent:
 
 ```bash
 docker run --rm --entrypoint /bin/sh cgr.dev/chainguard/node:latest -c "ls /usr/include/unicode/ 2>/dev/null || echo 'NOT FOUND'"
@@ -54,7 +54,7 @@ docker run --rm --entrypoint /bin/sh cgr.dev/chainguard/node:latest -c "ls /usr/
 NOT FOUND
 ```
 
-**Bottom line:** any native Node addon that compiles against ICU (e.g., `full-icu`, custom `node-gyp` bindings, or packages that link to `libicuuc`) will fail to build in this image. You can't fix this with `apk add` because there's no package manager, and adding a `RUN` layer in a Dockerfile would break the security guarantees.
+**Bottom line:** any native Node addon that compiles against ICU (e.g., `full-icu`, custom `node-gyp` bindings, or packages that link to `libicuuc`) will fail to build in this image. You can't fix this with `apk add` because there's no package manager, and adding a `RUN` layer in a Dockerfile would require additional maintenance overhead.
 
 ### Run the probe yourself
 
@@ -108,7 +108,7 @@ You'll see the runtime checks pass (green) and every dev artifact check fail (re
 
 ## The Solution: Custom Assembly
 
-Custom Assembly lets you add packages from Chainguard's curated APK repository to a base image — without a package manager, without a Dockerfile `RUN` layer, and without breaking the CVE remediation SLA.
+Custom Assembly lets you add packages from Chainguard's source-built and fully patched APK repository to a base image — without a package manager, without a Dockerfile `RUN` layer, and with the full benefits of the CVE remediation SLA for your customized image.
 
 ### Repository Structure
 
@@ -224,7 +224,7 @@ The included GitHub Actions workflow (`.github/workflows/custom-assembly.yaml`) 
 ## How Custom Assembly Works
 
 1. You provide an **apko overlay YAML** specifying packages to add (and optionally env vars, annotations, accounts, or certificates).
-2. Chainguard builds the image in a **SLSA Level 2 hardened environment**.
+2. Chainguard builds the image in a **SLSA Level 3 hardened environment**.
 3. The customized image is published to your organization's registry at `cgr.dev/<org>/<image>`.
 4. Chainguard **automatically rebuilds** the image when base packages are updated, keeping it patched.
 5. The image remains covered under the **CVE remediation SLA** for entitled packages.
